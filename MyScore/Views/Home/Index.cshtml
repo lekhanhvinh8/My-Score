@@ -1,0 +1,476 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Index</title>
+
+    <link rel="stylesheet" type="text/css" href="~/Content/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="~/Content/DataTables/css/dataTables.bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="~/Content/Home.css"/>
+
+</head>
+<body>
+    <div class="container">
+        <br />
+        <div>
+            <button id="js-add-course" style="float:left;" class="btn btn-primary">Add Cource</button>
+
+            <input id="need" disabled style="float:right; width:100px;" class="form-control" />
+            <label style="float:right; margin-right:10px" class="control-label">Need: </label>
+
+            <input id="round" disabled style="float:right; width:100px; margin-right:30px;" class="form-control" />
+            <label style="float:right; margin-right:10px" class="control-label">Round: </label>
+
+            <input id="average" disabled style="float:right; width:100px; margin-right:30px;" class="form-control" />
+            <label style="float:right; margin-right:10px" class="control-label">Average Score: </label>
+
+            <input id="credits" disabled style="float:right; width:100px; margin-right:30px;" class="form-control" />
+            <label style="float:right; margin-right:10px" class="control-label">Credits: </label>
+
+            <input id="total-score" disabled style="float:right; width:100px; margin-right:30px;" class="form-control" />
+            <label style="float:right; margin-right:10px" class="control-label">Total Score: </label>
+            <div style="content: ''; display: table; clear: both;"></div>
+        </div>
+        <hr />
+        <table id="scores" class="table	table-bordered	table-hover ">
+            <thead>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+
+        <div id="dialog-add-course" style="display:none;">
+            <div>
+                <form id="form-add-course" role="form">
+                    <div class="form-group">
+                        <label for="name">Name:</label>
+                        <input class="form-control" name="name" type="text" placeholder="Enter name" required="required">
+                    </div>
+                    <div class="form-group">
+                        <label for="credits">Credits:</label>
+                        <input class="form-control" name="credits" type="number" placeholder="Enter number of credits" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="score">Score:</label>
+                        <input class="form-control" name="score" type="number" placeholder="Enter score">
+                    </div>
+                </form>
+            </div>
+            <div>
+                <button id="btn-save-course" class="btn btn-primary jsSaveCourse">Save</button>
+            </div>
+            
+        </div>
+    </div>
+
+    <script src="~/Scripts/jquery-3.4.1.js"></script>
+    <script src="~/Scripts/bootstrap.js"></script>
+    <script src="~/Scripts/bootbox.js"></script>
+    <script src="~/Scripts/DataTables/jquery.dataTables.js"></script>
+    <script src="~/Scripts/DataTables/dataTables.bootstrap.js"></script>
+    <script src="~/Scripts/jquery.validate.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+
+            UpdateScore();
+
+            jQuery.fn.serializeJSON = function () {
+                var json = {};
+
+                jQuery.map(jQuery(this).serializeArray(), function (n) {
+                    var _ = n.name.indexOf('[');
+
+                    if (_ > -1) {
+                        var o = json,
+                            _name;
+
+                        _name = n.name.replace(/\]/gi, '').split('[');
+
+                        for (var i = 0, len = _name.length; i < len; i++) {
+                            if (i == len - 1) {
+                                if (o[_name[i]]) {
+                                    if (typeof o[_name[i]] == 'string') {
+                                        o[_name[i]] = [o[_name[i]]];
+                                    }
+
+                                    o[_name[i]].push(n.value);
+                                } else {
+                                    o[_name[i]] = n.value || '';
+                                }
+                            } else {
+                                o = o[_name[i]] = o[_name[i]] || {};
+                            }
+                        }
+                    } else if (json[n.name] !== undefined) {
+                        if (!json[n.name].push) {
+                            json[n.name] = [json[n.name]];
+                        }
+
+                        json[n.name].push(n.value || '');
+                    } else {
+                        json[n.name] = n.value || '';
+                    }
+                });
+
+                return json;
+            };
+
+
+            var table = $("#scores").DataTable({
+                ajax: {
+                    url: "/api/Courses/GetCoursesOfUser",
+                    dataSrc: "",
+                },
+                columns: [
+                    {
+                        title: "Order",
+                        data: "orderNumber",
+                        className: "text-center",
+                        render: function (data) {
+                            return data;
+                        }
+                    },
+                    {
+                        title: "Course Name",
+                        data: "name",
+                        render: function (data, type, course) {
+                            var markup = "<div data-course-id=" + course.id + " data-order=" + course.orderNumber + ">";
+                            markup += data;
+                            markup += "</div>";
+                            return markup;
+                        }
+                    },
+                    {
+                        title: "Credits",
+                        data: "numberOfCredits",
+                        className: "text-center",
+                        render: function (data) {
+                            return data;
+                        }
+                    },
+                    {
+                        title: "Score",
+                        data: "",
+                        className: "text-center",
+                        render: function (data, type, course) {
+                            var score = "no score yet";
+
+                            if (course.score != null) {
+                                score = course.score;
+                            }
+
+                            var markup = "<div>";
+                            markup += "<div style='float:left; width: 120px;'><input style='width: 120px;' class='form-control jsScore' disabled value='" + score + "'></div>";
+                            markup += "<div style='float:left; margin-left:10px;'> <button style='width: 100px;' class='btn btn-danger jsAddScore' data-course-id=' " + course.id + " '>" + "Unlock" + "</button></div>";
+                            markup += "</div>"
+                            return markup;
+                        }
+                    },
+                    {
+                        title: "",
+                        data: "id",
+                        className: "text-center",
+                        render: function (data, type, course) {
+                            var markup = "<div>"
+                            markup += "<button class='btn btn-warning jsUp' data-course-id=" + course.id + " data-order=" + course.orderNumber + "><span class='glyphicon glyphicon-triangle-top' aria-hidden='true'></span></button>";
+                            markup += "<button class='btn btn-info jsDown' data-course-id=" + course.id + " data-order=" + course.orderNumber + " style='margin-left:3px;'><span class='glyphicon glyphicon-triangle-bottom' aria-hidden='true'></span></button>";
+                            markup += "</div>";
+
+                            return markup;
+                        }
+                    },
+                    {
+                        title: "Delete",
+                        data: "id",
+                        className: "text-center",
+                        render: function (data) {
+                            return "<button class='jsDelete' data-courseId= " + data + ">Delete</button>";
+                        }
+                    },
+
+                ],
+                //paging: false,
+                scrollY: 1000,
+                scrollX: false,
+                scrollCollapse: true,
+                pageLength:7,
+                deferRender: true,
+                order: [[0, "asc"]],
+            });
+
+            $("#js-add-course").on("click", function () {
+                var dialogAddCourse = bootbox.dialog({
+                    message: $("#dialog-add-course").html(),
+                    title: "Adding new course",
+                    buttons: [
+                        {
+                            label: "Close",
+                            className: "btn btn-default pull-left",
+                            callback: function () {
+                            }
+                        },
+                    ],
+                    show: false,
+                    onEscape: function () {
+                        dialogAddCourse.modal("hide");
+                    },
+                });
+
+                dialogAddCourse.modal("show");
+
+                var buttonSave = dialogAddCourse.find(".jsSaveCourse");
+                buttonSave.on("click", function () {
+                    var form = dialogAddCourse.find("#form-add-course");
+                    var items = form.serializeJSON();
+
+                    form.validate({
+                        rules: {
+                            name: {
+                                required: true,
+                            },
+                            credits: {
+                                required: true,
+                                number: true,
+                                isInteger: true,
+                                min: 0,
+                            },
+                            score: {
+                                number: true,
+                                range: [0, 10],
+                                isScoreInForm: true,
+                            }
+                        },
+                        messages: {
+                        }
+                    });
+
+                    if (!form.valid())
+                        return false;
+
+                    $.ajax({
+                        url: "/api/Courses/Create",
+                        method: "Post",
+                        data: {
+                            name: form.find("input[name='name']").val(),
+                            numberOfCredits: items.credits,
+                            score: items.score,
+                        },
+                        success: function (response) {
+                            var trDOM = table.row.add({
+                                id: response.id,
+                                name: response.name,
+                                numberOfCredits: response.numberOfCredits,
+                                score: response.score,
+                                orderNumber: response.orderNumber,
+                            }).draw(false).node();
+
+                            UpdateScore();
+                        },
+                    });
+
+                    dialogAddCourse.modal("hide");
+                });
+            });
+
+            table.on("click", ".jsAddScore", function () {
+                var button = $(this);
+                var scoreInput = button.parents("td").find(".jsScore");
+
+                if (button.text() == "Unlock") {
+                    button.text("Lock");
+                    button.removeClass("btn-danger");
+                    button.addClass("btn-success");
+
+                    if (scoreInput.val() == "no score yet")
+                        scoreInput.val("");
+
+                    scoreInput.attr("disabled", false);
+                }
+                else {
+                    var newScore = "-1";
+                    if (scoreInput.val() != "")
+                        newScore = scoreInput.val();
+
+                    $.ajax({
+                        url: "/api/Courses/UpdateScore?courseId=" + button.attr("data-course-id") + "&newScore=" + newScore,
+                        method: "Put",
+                        success: function () {
+                            button.text("Unlock");
+
+                            button.removeClass("btn-success");
+                            button.addClass("btn-danger");
+
+                            var row = button.parents("tr");
+                            var tableRow = table.row(row);
+                            var data = tableRow.data();
+
+                            if (scoreInput.val() == "")
+                                data.score = "no score yet";
+                            else
+                                data.score = scoreInput.val();
+
+                            tableRow.data(data);
+
+                            scoreInput.prop("disabled", true);
+
+                            UpdateScore();
+                        },
+                    });
+                }
+            });
+
+            table.on("click", ".jsDelete", function () {
+
+                var button = $(this);
+
+                $.ajax({
+                    url: "/api/Courses/Delete?id=" + button.attr("data-courseId"),
+                    method: "Delete",
+                    success: function () {
+                        table.row(button.parents("tr")).remove().draw();
+
+                        UpdateScore();
+                    }
+                });
+            });
+
+            /*
+            table.on("input", ".jsScore", function () {
+
+            });
+            */
+
+            $("#scores").on("input", ".jsScore", function () {
+                var input = $(this);
+                var lockButton = input.parents("td").find(".jsAddScore");
+
+                if (!isValidScore(input.val())) {
+                    input.attr("style", "width: 120px; color: red;");
+
+                    lockButton.prop("disabled", true);
+                }
+                else {
+                    input.attr("style", "width: 120px;");
+                    lockButton.prop("disabled", false);
+                }
+            });
+
+            table.on("click", ".jsUp", function () {
+                var buttonUp = $(this);
+
+                var row = buttonUp.parents("tr");
+                var aboveRow = $(row).prev()[0];
+
+                var tableRow = table.row(row);
+                var aboveTableRow = table.row(aboveRow);
+
+                var rowData = tableRow.data();
+                var aboveRowData = aboveTableRow.data();
+
+                if (rowData === aboveRowData)
+                    return;
+
+                $.ajax({
+                    url: "/api/Courses/SwapOrderNumber?courseId1="
+                        + rowData.id
+                        + "&courseId2=" + aboveRowData.id,
+                    method: "Put",
+                    success: function () {
+                        tableRow.data(aboveRowData);
+                        aboveTableRow.data(rowData);
+                    }
+                });
+                
+            });
+
+            table.on("click", ".jsDown", function () {
+                var buttonUp = $(this);
+
+                var row = buttonUp.parents("tr");
+                var belowRow = row.next()[0];
+
+                var tableRow = table.row(row);
+                var belowTableRow = table.row(belowRow);
+
+                var rowData = tableRow.data();
+                var belowRowData = belowTableRow.data();
+
+                if (rowData === belowRowData)
+                    return;
+
+                $.ajax({
+                    url: "/api/Courses/SwapOrderNumber?courseId1="
+                        + rowData.id
+                        + "&courseId2=" + belowRowData.id,
+                    method: "Put",
+                    success: function () {
+                        tableRow.data(belowRowData);
+                        belowTableRow.data(rowData);
+                    }
+                });
+            });
+        });
+
+        function UpdateScore() {
+            $.ajax({
+                url: "/api/Courses/CalScore",
+                method: "get",
+                success: function (response) {
+                    $("#total-score").val(response.sumScore);
+                    $("#credits").val(response.sumCredits);
+                    $("#average").val(response.averageScore);
+                    $("#round").val(response.roundAvgScore);
+                    $("#need").val(response.averageScoreNeededTo8);
+                }
+            });
+        }
+
+        function isValidScore(score) { 
+            if (score == "")
+                return true;
+
+            // check numeric
+            if (!($.isNumeric(score)))
+                return false;
+
+            //check range in (0, 10)
+            if (score < 0 || score > 10)
+                return false;
+
+            //check in form 0.0
+            var regxp = /^\d+(\.\d{1,1})?$/;
+            if (!regxp.test(score))
+                return false;
+
+            return true;
+        }
+
+        jQuery.validator.addMethod("isInteger", function (value) {
+            var isValid = true;
+            if (!Number.isInteger(Number(value)))
+                isValid = false;
+
+            return isValid;
+        }, "invalid number, please type a integer number");
+
+        jQuery.validator.addMethod("isScoreInForm", function (value) {
+            if (value == "")
+                return true;
+
+            //check in form 0.0
+            var regxp = /^\d+(\.\d{1,1})?$/;
+            if (!regxp.test(value))
+                return false;
+
+            return true;
+        }, "score must be in form 0.0");
+    </script>
+</body>
+</html>
